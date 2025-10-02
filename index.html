@@ -122,14 +122,14 @@ function endDraw(){
   isDrawing = false;
   const pattern = selected.map(p=>p.index);
   if(JSON.stringify(pattern) === JSON.stringify(correctPattern)){
-    status.textContent = "パターン正解！フルスクリーン解除";
+    status.textContent = "フルスクリーン解除";
     status.style.color = "#0f0";
     lockActive = false;
     canvas.style.display = 'none';
     btn.style.display = 'block';
     exitFullscreen();
   } else {
-    status.textContent = "パターン間違い。再入力してください";
+    status.textContent = "パターン間違い";
     status.style.color = "#ff5555";
     selected.length = 0;
     draw();
@@ -154,7 +154,7 @@ function exitFullscreen(){
   }
 }
 
-// キーボード完全ロック
+// キーボードロック
 async function lockKeyboard(){
   if('keyboard' in navigator){
     try {
@@ -166,17 +166,17 @@ async function lockKeyboard(){
   }
 }
 
-// フルスクリーン解除を検知したら即再フルスクリーン
+// フルスクリーン解除を検知したら再フルスクリーン
 async function monitorFullscreen(){
   while(lockActive){
     if(!document.fullscreenElement){
       await enterFullscreen();
     }
-    await new Promise(r=>setTimeout(r, 100)); // 0.1秒毎に監視
+    await new Promise(r=>setTimeout(r, 100));
   }
 }
 
-// ボタンクリックで開始
+// ボタンクリック
 btn.addEventListener('click', async ()=>{
   lockActive = true;
   btn.style.display = 'none';
