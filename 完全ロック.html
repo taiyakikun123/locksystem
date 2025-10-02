@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ロック</title>
+<style>
+  body {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: #111;
+    overflow: hidden;
+    user-select: none;
+    touch-action: none;
+    font-family: sans-serif;
+    color: white;
+    flex-direction: column;
+  }
+  #lockBtn {
+    font-size: 24px;
+    padding: 20px;
+    border: none;
+    border-radius: 10px;
+    background: #0a84ff;
+    color: white;
+    cursor: pointer;
+    margin-bottom: 20px;
+    z-index: 10;
+  }
+  canvas {
+    background: #222;
+    border-radius: 20px;
+    touch-action: none;
+  }
+  #status {
+    margin-top: 10px;
+    font-size: 20px;
+    color: #ff5555;
+    min-height: 24px;
+  }
+</style>
+</head>
+<body>
+<button id="lockBtn">ロック開始</button>
+<canvas id="patternCanvas" width="300" height="300" style="display:none;"></canvas>
+<div id="status"></div>
+
+<script>
+const btn = document.getElementById('lockBtn');
+const canvas = document.getElementById('patternCanvas');
+const ctx = canvas.getContext('2d');
+const status = document.getElementById('status');
+const size = canvas.width;
+const radius = 20;
+const points = [];
+const selected = [];
+let isDrawing = false;
+
+// 正しいパターン
+const correctPattern = [2,4,8];
+let lockActive = false;
+
+// 初期化
+function initPoints() {
+  points.length = 0;
+  for (let row=0; row<3; row++){
+    for(let col=0; col<3; col++){
+      points.push({x: size/6 + col*size/3, y: size/6 + row*size/3, index: row*3+col});
+    }
+  }
+}
+
+// 描画
+function draw() {
+  ctx.clearRect(0,0,size,size);
+  ctx.fillStyle = "#555";
+  points.forEach(p=>{
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,radius,0,Math.PI*2);
+    ctx.fill();
+  });
+  if(selected.length>0){
+    ctx.strokeStyle = "#0f0";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(selected[0].x, selected[0].y);
+    for(let i=1;i<selected.length;i++){
+      ctx.lineTo(selected[i].x, selected[i].y);
+    }
+    ctx.stroke();
+  }
+}
+
+// 指定座標の点を取得
+function getPointAt(x,y){
+  return points.find(p=>Math.hypot(p.x-x,p.y-y)<radius);
+}
+
+// パターン描画開始
+function startDraw(e){
+  isDrawing = true;
+  selected.length = 0;
+  handleMove(e);
+}
+
+// パターン描画移動
+function handleMove(e){
+  if(!isDrawing) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+  const p = getPointAt(x,y);
+  if(p && !selected.includes(p)) selected.push(p);
+  draw();
+}
+
+// パターン描画終了
+function endDraw(){
+  isDrawing = false;
+  const pattern = selected.map(p=>p.index);
+  if(JSON.stringify(pattern) === JSON.stringify(correctPattern)){
+    status.textContent = "パターン正解！フルスクリーン解除";
+    status.style.color = "#0f0";
+    lockActive = false;
+    canvas.style.display = 'none';
+    btn.style.display = 'block';
+    exitFullscreen();
+  } else {
+    status.textContent = "パターン間違い。再入力してください";
+    status.style.color = "#ff5555";
+    selected.length = 0;
+    draw();
+  }
+}
+
+// フルスクリーン開始
+async function enterFullscreen(){
+  if(!document.fullscreenElement){
+    try {
+      await document.documentElement.requestFullscreen();
+    } catch(e){
+      console.warn("フルスクリーン開始失敗:", e);
+    }
+  }
+}
+
+// フルスクリーン解除
+function exitFullscreen(){
+  if(document.fullscreenElement){
+    document.exitFullscreen();
+  }
+}
+
+// キーボード完全ロック
+async function lockKeyboard(){
+  if('keyboard' in navigator){
+    try {
+      await navigator.keyboard.lock();
+      console.log("キーボード完全ロック有効");
+    } catch(e){
+      console.warn("キーボードロック不可:", e);
+    }
+  }
+}
+
+// フルスクリーン解除を検知したら即再フルスクリーン
+async function monitorFullscreen(){
+  while(lockActive){
+    if(!document.fullscreenElement){
+      await enterFullscreen();
+    }
+    await new Promise(r=>setTimeout(r, 100)); // 0.1秒毎に監視
+  }
+}
+
+// ボタンクリックで開始
+btn.addEventListener('click', async ()=>{
+  lockActive = true;
+  btn.style.display = 'none';
+  canvas.style.display = 'block';
+  status.textContent = "パターンを入力してください";
+  status.style.color = "#fff";
+  initPoints();
+  draw();
+  await enterFullscreen();
+  await lockKeyboard();
+  monitorFullscreen(); // 自動復帰監視開始
+});
+
+// パターンイベント
+canvas.addEventListener('mousedown', startDraw);
+canvas.addEventListener('mousemove', handleMove);
+canvas.addEventListener('mouseup', endDraw);
+canvas.addEventListener('touchstart', startDraw);
+canvas.addEventListener('touchmove', handleMove);
+canvas.addEventListener('touchend', endDraw);
+
+</script>
+</body>
+</html>
